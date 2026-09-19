@@ -81,7 +81,10 @@
           <button id="nav-marketplace-btn" class="badge badge-interactive" title="Browse Marketplace & Custom Installs">
             📦 Marketplace
           </button>
-          <!-- <div class="active-skills-chips" id="active-skills-chips"></div> -->
+          <div class="badge badge-outline realtime-badge" id="realtime-status-badge" title="Supabase Realtime Sync Status">
+            <span class="realtime-dot"></span>
+            <span class="realtime-label" id="realtime-status-label">Realtime: Connecting...</span>
+          </div>
           <div class="badge badge-outline" id="llm-status-badge">Model: DeepSeek-v4.1</div>
         </div>
       </header>
@@ -495,6 +498,7 @@
   </div>
 
   <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="app.js"></script>

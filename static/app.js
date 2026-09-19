@@ -11,6 +11,10 @@ const state = {
   memories: [],
   currentMarketFilter: "all",
   currentMemoryCategory: "all",
+  supabaseClient: null,
+  realtimeChannel: null,
+  realtimeStatus: "offline",
+  supabaseConfig: { url: "", anonKey: "" },
 };
 
 // DOM References
@@ -33,6 +37,8 @@ const elements = {
   userAvatar: document.getElementById("user-avatar"),
   llmStatusBadge: document.getElementById("llm-status-badge"),
   activeSkillsChips: document.getElementById("active-skills-chips"),
+  realtimeStatusBadge: document.getElementById("realtime-status-badge"),
+  realtimeStatusLabel: document.getElementById("realtime-status-label"),
 
   // Navigation & Badges
   sidebarMemoryCount: document.getElementById("sidebar-memory-count"),
@@ -345,7 +351,7 @@ async function selectSession(sessionId, title) {
   // Fetch messages
   try {
     const res = await apiFetch(`/api/sessions/${sessionId}/messages`);
-    res.messages.forEach((m) => appendMessageUI(m.role, m.content, m.tool_calls, m.tool_results));
+    res.messages.forEach((m) => appendMessageUI(m.role, m.content, m.tool_calls, m.tool_results, m.id));
     scrollToBottom();
   } catch (err) {
     console.error("Failed to load messages:", err);
@@ -357,10 +363,306 @@ async function loadInfo() {
   try {
     const info = await apiFetch("/api/info");
     elements.llmStatusBadge.textContent = `${info.model} ${info.is_llm_configured ? "\u{1F7E2}" : "\u26AA Demo"}`;
-    elements.settingModel.value = info.model;
-    elements.settingBaseUrl.value = info.base_url;
+    if (elements.settingModel) elements.settingModel.value = info.model;
+    if (elements.settingBaseUrl) elements.settingBaseUrl.value = info.base_url;
+
+    if (elements.settingSupabaseUrl && info.supabase_url && !elements.settingSupabaseUrl.value) {
+      elements.settingSupabaseUrl.value = info.supabase_url;
+    }
+    if (elements.settingSupabaseAnonKey && info.supabase_anon_key && !elements.settingSupabaseAnonKey.value) {
+      elements.settingSupabaseAnonKey.value = info.supabase_anon_key;
+    }
+
+    // Initialize Supabase Realtime synchronization
+    if (info.supabase_url && info.supabase_anon_key) {
+      initSupabaseRealtime(info.supabase_url, info.supabase_anon_key);
+    } else {
+      updateRealtimeBadge("offline", "Realtime: Offline (Demo)");
+    }
   } catch (e) {
     console.warn("Could not load info:", e);
+    updateRealtimeBadge("offline", "Realtime: Offline");
+  }
+}
+
+// ==============================================================================
+// Supabase Realtime Synchronizer
+// ==============================================================================
+
+function updateRealtimeBadge(status, customLabel = null) {
+  state.realtimeStatus = status;
+  if (!elements.realtimeStatusBadge || !elements.realtimeStatusLabel) return;
+
+  elements.realtimeStatusBadge.classList.remove("connected", "connecting", "offline");
+  elements.realtimeStatusBadge.classList.add(status);
+
+  if (customLabel) {
+    elements.realtimeStatusLabel.textContent = customLabel;
+  } else if (status === "connected") {
+    elements.realtimeStatusLabel.textContent = "Realtime: Connected";
+  } else if (status === "connecting") {
+    elements.realtimeStatusLabel.textContent = "Realtime: Connecting...";
+  } else {
+    elements.realtimeStatusLabel.textContent = "Realtime: Offline";
+  }
+}
+
+function initSupabaseRealtime(url, anonKey) {
+  if (!url || !anonKey || url.includes("mock") || anonKey.includes("mock")) {
+    updateRealtimeBadge("offline", "Realtime: Offline (Demo)");
+    return;
+  }
+
+  if (!window.supabase || typeof window.supabase.createClient !== "function") {
+    console.warn("Supabase JS SDK still loading, retrying realtime in 400ms...");
+    setTimeout(() => initSupabaseRealtime(url, anonKey), 400);
+    return;
+  }
+
+  if (state.supabaseClient && state.supabaseConfig.url === url && state.supabaseConfig.anonKey === anonKey) {
+    return;
+  }
+
+  state.supabaseConfig = { url, anonKey };
+
+  try {
+    updateRealtimeBadge("connecting");
+    state.supabaseClient = window.supabase.createClient(url, anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    });
+
+    if (state.token && state.token !== "mock-access-token-demo") {
+      try {
+        state.supabaseClient.realtime.setAuth(state.token);
+      } catch (e) {
+        console.warn("Realtime setAuth note:", e);
+      }
+    }
+
+    setupRealtimeSubscriptions();
+  } catch (err) {
+    console.error("Failed to initialize Supabase Realtime client:", err);
+    updateRealtimeBadge("offline");
+  }
+}
+
+function setupRealtimeSubscriptions() {
+  if (!state.supabaseClient) return;
+
+  if (state.realtimeChannel) {
+    try {
+      state.supabaseClient.removeChannel(state.realtimeChannel);
+    } catch (_) {}
+    state.realtimeChannel = null;
+  }
+
+  updateRealtimeBadge("connecting");
+
+  const channel = state.supabaseClient.channel("ocg-agent-db-sync");
+
+  channel
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "sessions" },
+      (payload) => handleRealtimeSession(payload)
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "messages" },
+      (payload) => handleRealtimeMessage(payload)
+    )
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "agent_memories" },
+      (payload) => handleRealtimeMemory(payload)
+    )
+    .subscribe((status, err) => {
+      console.log(`[Supabase Realtime] Channel status: ${status}`, err || "");
+      if (status === "SUBSCRIBED") {
+        updateRealtimeBadge("connected");
+      } else if (status === "TIMED_OUT" || status === "CHANNEL_ERROR") {
+        updateRealtimeBadge("offline");
+        setTimeout(() => {
+          if (state.realtimeStatus === "offline" && state.supabaseClient) {
+            setupRealtimeSubscriptions();
+          }
+        }, 5000);
+      } else if (status === "CLOSED") {
+        updateRealtimeBadge("connecting");
+      }
+    });
+
+  state.realtimeChannel = channel;
+}
+
+async function handleRealtimeSession(payload) {
+  const { eventType, new: newRecord, old: oldRecord } = payload;
+
+  if (eventType === "INSERT") {
+    if (!newRecord) return;
+    const existing = elements.sessionsList.querySelector(`[data-id="${newRecord.id}"]`);
+    if (!existing) {
+      const div = document.createElement("div");
+      div.className = `session-item ${newRecord.id === state.currentSessionId ? "active" : ""}`;
+      div.dataset.id = newRecord.id;
+      div.innerHTML = `
+        <span class="session-title">${escapeHtml(newRecord.title || "Conversation")}</span>
+        <button class="session-delete-btn" data-id="${newRecord.id}" title="Delete session">\u2715</button>
+      `;
+      div.addEventListener("click", (e) => {
+        if (!e.target.classList.contains("session-delete-btn")) {
+          selectSession(newRecord.id, newRecord.title);
+        }
+      });
+      const delBtn = div.querySelector(".session-delete-btn");
+      if (delBtn) {
+        delBtn.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          if (confirm("Delete this conversation?")) {
+            try {
+              await apiFetch(`/api/sessions/${newRecord.id}`, { method: "DELETE" });
+              if (state.currentSessionId === newRecord.id) {
+                state.currentSessionId = null;
+                elements.messagesList.innerHTML = "";
+                elements.welcomeContainer.style.display = "block";
+                elements.activeSessionTitle.textContent = "New Conversation";
+              }
+              await loadSessions();
+            } catch (err) {
+              alert("Error deleting session: " + err.message);
+            }
+          }
+        });
+      }
+      elements.sessionsList.prepend(div);
+      div.classList.add("realtime-flash");
+      setTimeout(() => div.classList.remove("realtime-flash"), 1200);
+    }
+  } else if (eventType === "UPDATE") {
+    if (!newRecord) return;
+    const existing = elements.sessionsList.querySelector(`[data-id="${newRecord.id}"]`);
+    if (existing) {
+      const titleEl = existing.querySelector(".session-title");
+      if (titleEl) titleEl.textContent = newRecord.title || "Conversation";
+      existing.classList.add("realtime-flash");
+      setTimeout(() => existing.classList.remove("realtime-flash"), 1200);
+    }
+    if (state.currentSessionId === newRecord.id) {
+      elements.activeSessionTitle.textContent = newRecord.title || "Conversation";
+    }
+  } else if (eventType === "DELETE") {
+    if (!oldRecord) return;
+    const existing = elements.sessionsList.querySelector(`[data-id="${oldRecord.id}"]`);
+    if (existing) {
+      existing.remove();
+    }
+    if (state.currentSessionId === oldRecord.id) {
+      state.currentSessionId = null;
+      elements.messagesList.innerHTML = "";
+      elements.welcomeContainer.style.display = "block";
+      elements.activeSessionTitle.textContent = "New Conversation";
+    }
+  }
+}
+
+function handleRealtimeMessage(payload) {
+  const { eventType, new: newRecord, old: oldRecord } = payload;
+
+  if (eventType === "INSERT") {
+    if (!newRecord || newRecord.session_id !== state.currentSessionId) {
+      return;
+    }
+
+    // 1. If an element with this exact message id already exists, skip
+    if (elements.messagesList.querySelector(`[data-id="${newRecord.id}"]`)) {
+      return;
+    }
+
+    // 2. Deduplicate user message sent from this tab: attach data-id to the local row
+    if (newRecord.role === "user") {
+      const userRows = elements.messagesList.querySelectorAll(".message-row.user:not([data-id])");
+      if (userRows.length > 0) {
+        const lastUserRow = userRows[userRows.length - 1];
+        const contentEl = lastUserRow.querySelector(".message-content");
+        if (contentEl && contentEl.textContent.trim() === (newRecord.content || "").trim()) {
+          lastUserRow.dataset.id = newRecord.id;
+          return;
+        }
+      }
+    }
+
+    // 3. Deduplicate assistant message completed in this tab via SSE stream
+    if (newRecord.role === "assistant" && state.isGenerating) {
+      const assistantRows = elements.messagesList.querySelectorAll(".message-row.assistant:not([data-id])");
+      if (assistantRows.length > 0) {
+        const lastAssistant = assistantRows[assistantRows.length - 1];
+        lastAssistant.dataset.id = newRecord.id;
+        return;
+      }
+    }
+
+    // 4. If generated by another tab / device, append in real-time
+    appendMessageUI(
+      newRecord.role,
+      newRecord.content,
+      newRecord.tool_calls,
+      newRecord.tool_results,
+      newRecord.id
+    );
+
+    const newEl = elements.messagesList.querySelector(`[data-id="${newRecord.id}"]`);
+    if (newEl) {
+      newEl.classList.add("realtime-flash");
+      setTimeout(() => newEl.classList.remove("realtime-flash"), 1200);
+    }
+    scrollToBottom();
+  } else if (eventType === "UPDATE") {
+    if (newRecord && newRecord.session_id === state.currentSessionId) {
+      const existing = elements.messagesList.querySelector(`[data-id="${newRecord.id}"]`);
+      if (existing) {
+        const contentEl = existing.querySelector(".message-content");
+        if (contentEl) {
+          contentEl.innerHTML = newRecord.role === "assistant" ? marked.parse(newRecord.content || "") : escapeHtml(newRecord.content || "");
+          applyCodeHighlighting(contentEl);
+          existing.classList.add("realtime-flash");
+          setTimeout(() => existing.classList.remove("realtime-flash"), 1200);
+        }
+      }
+    }
+  } else if (eventType === "DELETE") {
+    if (oldRecord && oldRecord.id) {
+      const existing = elements.messagesList.querySelector(`[data-id="${oldRecord.id}"]`);
+      if (existing) {
+        existing.style.opacity = "0";
+        existing.style.transition = "opacity 0.25s ease";
+        setTimeout(() => existing.remove(), 250);
+      }
+    }
+  }
+}
+
+async function handleRealtimeMemory(payload) {
+  await loadMemoriesCount();
+
+  if (elements.navMemoryBtn) {
+    elements.navMemoryBtn.classList.add("badge-pulse");
+    setTimeout(() => elements.navMemoryBtn.classList.remove("badge-pulse"), 600);
+  }
+  if (elements.sidebarMemoryCount) {
+    elements.sidebarMemoryCount.classList.add("badge-pulse");
+    setTimeout(() => elements.sidebarMemoryCount.classList.remove("badge-pulse"), 600);
+  }
+
+  if (elements.memoryModal && elements.memoryModal.classList.contains("open")) {
+    await loadMemories(state.currentMemoryCategory);
   }
 }
 
@@ -510,9 +812,12 @@ async function handleSend() {
 }
 
 // UI Helpers
-function appendMessageUI(role, content, toolCalls = null, toolResults = null) {
+function appendMessageUI(role, content, toolCalls = null, toolResults = null, messageId = null) {
   const row = document.createElement("div");
   row.className = `message-row ${role}`;
+  if (messageId) {
+    row.dataset.id = messageId;
+  }
   const avatar = role === "user" ? "\u{1F464}" : "\u{1FA90}";
 
   let toolHtml = "";
@@ -1146,7 +1451,18 @@ function setupEventListeners() {
     try {
       const res = await apiFetch(endpoint, { method: "POST", body: JSON.stringify({ email, password }) });
       const token = res.data?.session?.access_token;
-      if (token) { state.token = token; localStorage.setItem("sb_access_token", token); }
+      if (token) {
+        state.token = token;
+        localStorage.setItem("sb_access_token", token);
+        if (state.supabaseClient) {
+          try {
+            state.supabaseClient.realtime.setAuth(token);
+            setupRealtimeSubscriptions();
+          } catch (e) {
+            console.warn("Auth token setAuth error:", e);
+          }
+        }
+      }
       elements.authFeedback.className = "feedback-msg success";
       elements.authFeedback.textContent = isSignupTab ? "Account created successfully!" : "Authenticated with Supabase!";
       await checkAuth();
@@ -1180,6 +1496,12 @@ function setupEventListeners() {
       state.token = "";
       state.user = { is_guest: true, email: "guest@local", role: "guest" };
       localStorage.removeItem("sb_access_token");
+      if (state.supabaseClient) {
+        try {
+          state.supabaseClient.realtime.setAuth(state.supabaseConfig.anonKey);
+          setupRealtimeSubscriptions();
+        } catch (_) {}
+      }
       await checkAuth();
       await loadSessions();
       await loadMemoriesCount();
@@ -1225,11 +1547,24 @@ function setupEventListeners() {
       elements.settingsFeedback.className = "feedback-msg success";
       elements.settingsFeedback.textContent = "Settings updated successfully!";
       await loadInfo();
+      if (payload.supabase_url && payload.supabase_anon_key) {
+        initSupabaseRealtime(payload.supabase_url, payload.supabase_anon_key);
+      }
     } catch (err) {
       elements.settingsFeedback.className = "feedback-msg error";
       elements.settingsFeedback.textContent = err.message;
     }
   });
+
+  // Reconnect realtime on clicking badge if offline
+  if (elements.realtimeStatusBadge) {
+    elements.realtimeStatusBadge.style.cursor = "pointer";
+    elements.realtimeStatusBadge.addEventListener("click", () => {
+      if (state.supabaseConfig.url && state.supabaseConfig.anonKey) {
+        initSupabaseRealtime(state.supabaseConfig.url, state.supabaseConfig.anonKey);
+      }
+    });
+  }
 }
 
 // Run app

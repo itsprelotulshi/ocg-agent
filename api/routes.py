@@ -329,6 +329,8 @@ async def get_info(user: UserContext = Depends(get_current_user)):
         "base_url": agent.llm.base_url,
         "is_llm_configured": agent.llm.is_configured(),
         "supabase_configured": supabase_auth.is_configured(),
+        "supabase_url": settings.SUPABASE_URL if settings.SUPABASE_URL and "mock" not in settings.SUPABASE_URL else "",
+        "supabase_anon_key": settings.SUPABASE_ANON_KEY if settings.SUPABASE_ANON_KEY and "mock" not in settings.SUPABASE_ANON_KEY else "",
         "require_auth": settings.REQUIRE_AUTH,
         "mcp_tools_count": len(agent.mcp.get_all_tools()),
         "plugin_tools_count": len(agent.plugins.get_all_tools()),

@@ -24,11 +24,25 @@ class DatabaseRepository:
     def _now_iso(self) -> str:
         return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
+    def _is_valid_uuid(self, val: Any) -> bool:
+        if not val or not isinstance(val, str):
+            return False
+        try:
+            uuid.UUID(val)
+            return True
+        except (ValueError, TypeError):
+            return False
+
     async def list_sessions(self, user_id: str) -> List[Dict[str, Any]]:
         client = supabase_auth.client
         if client:
             try:
-                res = client.table("sessions").select("*").eq("user_id", user_id).order("updated_at", desc=True).execute()
+                query = client.table("sessions").select("*")
+                if self._is_valid_uuid(user_id):
+                    query = query.eq("user_id", user_id)
+                elif user_id.startswith("guest") or not user_id:
+                    query = query.or_(f"user_id.is.null")
+                res = query.order("updated_at", desc=True).execute()
                 return res.data or []
             except Exception as e:
                 logger.warning(f"Supabase list_sessions failed, using local: {e}")
@@ -52,7 +66,10 @@ class DatabaseRepository:
         client = supabase_auth.client
         if client:
             try:
-                res = client.table("sessions").insert(record).execute()
+                sb_record = dict(record)
+                if not self._is_valid_uuid(user_id):
+                    sb_record["user_id"] = None
+                res = client.table("sessions").insert(sb_record).execute()
                 if res.data:
                     return res.data[0]
             except Exception as e:
@@ -75,9 +92,11 @@ class DatabaseRepository:
                         if row.get("tool_calls"):
                             tool_calls = [ToolCall(**tc) for tc in row["tool_calls"]]
                         messages.append(ChatMessage(
+                            id=row.get("id"),
                             role=row["role"],
                             content=row.get("content") or "",
-                            tool_calls=tool_calls
+                            tool_calls=tool_calls,
+                            created_at=row.get("created_at")
                         ))
                     return messages
             except Exception as e:
@@ -91,9 +110,11 @@ class DatabaseRepository:
             if row.get("tool_calls"):
                 tool_calls = [ToolCall(**tc) for tc in row["tool_calls"]]
             messages.append(ChatMessage(
+                id=row.get("id"),
                 role=row["role"],
                 content=row.get("content") or "",
-                tool_calls=tool_calls
+                tool_calls=tool_calls,
+                created_at=row.get("created_at")
             ))
         return messages
 
@@ -121,7 +142,10 @@ class DatabaseRepository:
         client = supabase_auth.client
         if client:
             try:
-                client.table("messages").insert(record).execute()
+                sb_record = dict(record)
+                if not self._is_valid_uuid(user_id):
+                    sb_record["user_id"] = None
+                client.table("messages").insert(sb_record).execute()
                 # Update session's updated_at
                 client.table("sessions").update({"updated_at": self._now_iso()}).eq("id", session_id).execute()
                 return record
@@ -142,7 +166,10 @@ class DatabaseRepository:
         client = supabase_auth.client
         if client:
             try:
-                client.table("sessions").delete().eq("id", session_id).eq("user_id", user_id).execute()
+                query = client.table("sessions").delete().eq("id", session_id)
+                if self._is_valid_uuid(user_id):
+                    query = query.eq("user_id", user_id)
+                query.execute()
                 return True
             except Exception as e:
                 logger.warning(f"Supabase delete_session failed: {e}")

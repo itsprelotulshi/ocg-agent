@@ -99,5 +99,20 @@
     "access_count": 0,
     "updated_at": "2026-09-18T10:57:20.184379+00:00",
     "created_at": "2026-09-18T10:57:20.185168+00:00"
+  },
+  {
+    "id": "4df3cad7-3aee-46c8-bbf7-a6ec50eafe52",
+    "user_id": "guest_user_1",
+    "category": "fact",
+    "key": "prelo_tulshi_identity",
+    "content": "Prelo Tulshi is identified as a person by the user. The user did not provide additional context about their field of expertise or public recognition status.",
+    "source": "llm_synthesized",
+    "confidence": 0.92,
+    "tags": [
+      "llm_extracted"
+    ],
+    "access_count": 0,
+    "updated_at": "2026-09-19T07:33:00.209018+00:00",
+    "created_at": "2026-09-19T07:33:00.209614+00:00"
   }
 ]

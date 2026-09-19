@@ -17,14 +17,18 @@ class ToolResult(BaseModel):
     is_error: bool = False
 
 class ChatMessage(BaseModel):
+    id: Optional[str] = None
     role: Literal["system", "user", "assistant", "tool"]
     content: Optional[str] = None
     name: Optional[str] = None
     tool_call_id: Optional[str] = None
     tool_calls: Optional[List[ToolCall]] = None
+    created_at: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         data: Dict[str, Any] = {"role": self.role}
+        if self.id is not None:
+            data["id"] = self.id
         if self.content is not None:
             data["content"] = self.content
         if self.name is not None:
@@ -33,6 +37,8 @@ class ChatMessage(BaseModel):
             data["tool_call_id"] = self.tool_call_id
         if self.tool_calls is not None:
             data["tool_calls"] = [tc.model_dump() for tc in self.tool_calls]
+        if self.created_at is not None:
+            data["created_at"] = self.created_at
         return data
 
 class AgentRunContext(BaseModel):

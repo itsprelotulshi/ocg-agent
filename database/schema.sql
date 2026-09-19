@@ -37,32 +37,32 @@ ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 -- 5. RLS Policies for Sessions
 CREATE POLICY "Users can view their own sessions"
     ON public.sessions FOR SELECT
-    USING (auth.uid() = user_id);
+    USING (user_id IS NULL OR auth.uid() = user_id);
 
 CREATE POLICY "Users can create their own sessions"
     ON public.sessions FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK (user_id IS NULL OR auth.uid() = user_id);
 
 CREATE POLICY "Users can update their own sessions"
     ON public.sessions FOR UPDATE
-    USING (auth.uid() = user_id);
+    USING (user_id IS NULL OR auth.uid() = user_id);
 
 CREATE POLICY "Users can delete their own sessions"
     ON public.sessions FOR DELETE
-    USING (auth.uid() = user_id);
+    USING (user_id IS NULL OR auth.uid() = user_id);
 
 -- 6. RLS Policies for Messages
 CREATE POLICY "Users can view messages from their sessions"
     ON public.messages FOR SELECT
-    USING (auth.uid() = user_id);
+    USING (user_id IS NULL OR auth.uid() = user_id);
 
 CREATE POLICY "Users can insert messages into their sessions"
     ON public.messages FOR INSERT
-    WITH CHECK (auth.uid() = user_id);
+    WITH CHECK (user_id IS NULL OR auth.uid() = user_id);
 
 CREATE POLICY "Users can delete messages from their sessions"
     ON public.messages FOR DELETE
-    USING (auth.uid() = user_id);
+    USING (user_id IS NULL OR auth.uid() = user_id);
 
 -- 7. Trigger to auto-update updated_at on sessions
 CREATE OR REPLACE FUNCTION update_session_timestamp()
@@ -102,5 +102,37 @@ ALTER TABLE public.agent_memories ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can manage their own memories"
     ON public.agent_memories FOR ALL
-    USING (auth.uid()::text = user_id OR user_id = 'global');
+    USING (auth.uid()::text = user_id OR user_id = 'global' OR user_id LIKE 'guest%');
+
+-- 9. Supabase Realtime Publication Setup
+-- Enable WebSocket realtime broadcasting on sessions, messages, and memories
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'sessions'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.sessions;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'messages'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'agent_memories'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE public.agent_memories;
+    END IF;
+END $$;
+
+-- Replica Identity FULL ensures all columns are sent with Realtime UPDATE/DELETE payloads
+ALTER TABLE public.sessions REPLICA IDENTITY FULL;
+ALTER TABLE public.messages REPLICA IDENTITY FULL;
+ALTER TABLE public.agent_memories REPLICA IDENTITY FULL;
+
 

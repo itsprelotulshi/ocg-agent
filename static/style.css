@@ -1808,3 +1808,91 @@ body {
   font-size: 16px;
   color: var(--text-muted);
 }
+
+/* ==============================================================================
+   Supabase Realtime Status Badge & Indicator
+   ============================================================================== */
+.realtime-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+
+.realtime-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  background-color: #6b7280;
+  transition: all 0.25s ease;
+}
+
+/* Connected State */
+.realtime-badge.connected {
+  border-color: rgba(16, 185, 129, 0.4);
+  background-color: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+}
+
+.realtime-badge.connected .realtime-dot {
+  background-color: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+  animation: realtime-live-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Connecting State */
+.realtime-badge.connecting {
+  border-color: rgba(245, 158, 11, 0.4);
+  background-color: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+}
+
+.realtime-badge.connecting .realtime-dot {
+  background-color: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+  animation: realtime-live-pulse 1s ease-in-out infinite;
+}
+
+/* Offline State */
+.realtime-badge.offline {
+  border-color: rgba(107, 114, 128, 0.3);
+  background-color: rgba(107, 114, 128, 0.08);
+  color: var(--text-muted);
+}
+
+.realtime-badge.offline .realtime-dot {
+  background-color: #6b7280;
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes realtime-live-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+/* Flash animation on realtime event receive */
+.realtime-flash {
+  animation: realtimeFlash 0.6s ease;
+}
+
+@keyframes realtimeFlash {
+  0% {
+    background-color: rgba(16, 185, 129, 0.25);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
