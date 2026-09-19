@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="icon"
+    href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+  <title>ocga</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body>
+  <!-- Page-load progress bar -->
+  <div id="page-loading-bar"></div>
+
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="brand">
+          <div class="brand-icon">⚡</div>
+          <div class="brand-info">
+            <h2>OCG Agent</h2>
+            <span class="model-badge">DeepSeek-v4.1</span>
+          </div>
+        </div>
+        <button id="new-chat-btn" class="btn btn-primary btn-full">+ New Chat</button>
+      </div>
+
+      <!-- Conversations Section -->
+      <div class="sidebar-section">
+        <div class="section-title">Conversations</div>
+        <div class="sessions-list" id="sessions-list">
+          <!-- Session items loaded dynamically -->
+        </div>
+      </div>
+
+      <!-- Extensibility & Memory Quick Links -->
+      <div class="sidebar-section">
+        <div class="section-title">Evolution</div>
+        <div class="quick-nav-col">
+          <button id="memory-modal-btn" class="btn btn-secondary btn-full btn-nav">
+            <span>🧠 Memory & Evolution</span>
+            <span class="badge-count" id="sidebar-memory-count">0</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- User Profile & Settings in Sidebar Footer -->
+      <div class="sidebar-footer">
+        <button class="user-profile user-profile-btn" id="settings-modal-btn" title="Settings & Profile">
+          <div class="user-avatar" id="user-avatar">👤</div>
+          <div class="user-details">
+            <div class="user-email" id="user-email">Guest Mode</div>
+            <div class="user-role" id="user-role">Demo / Unauthenticated</div>
+          </div>
+          <span class="user-profile-arrow">⚙️</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Chat Workspace -->
+    <main class="chat-main">
+      <!-- Top Navbar -->
+      <header class="top-nav">
+        <div class="nav-left">
+          <button id="toggle-sidebar-btn" class="icon-btn">☰</button>
+          <h1 id="active-session-title">New Conversation</h1>
+        </div>
+        <div class="nav-right">
+          <button id="nav-memory-btn" class="badge badge-interactive" title="View Recorded Memories & Guidelines">
+            🧠 <span id="nav-memory-count">0</span> Memories
+          </button>
+          <button id="nav-marketplace-btn" class="badge badge-interactive" title="Browse Marketplace & Custom Installs">
+            📦 Marketplace
+          </button>
+          <!-- <div class="active-skills-chips" id="active-skills-chips"></div> -->
+          <div class="badge badge-outline" id="llm-status-badge">Model: DeepSeek-v4.1</div>
+        </div>
+      </header>
+
+
+      <!-- Chat History Stream -->
+      <div class="messages-viewport" id="messages-viewport">
+        <div class="welcome-container" id="welcome-container">
+          <div class="welcome-hero">
+            <div class="welcome-icon">🪐</div>
+            <h2>Ocg Agent</h2>
+            <p>Empowered with dynamic Model Context Protocol (MCP) tool integration, extensible Python plugins, markdown
+              skill directives, and Supabase client authentication.</p>
+          </div>
+          <div class="suggestion-grid">
+            <div class="suggestion-card" data-prompt="What time is it right now? Use your MCP utility tool to check.">
+              <h4>🕒 MCP Tools</h4>
+              <p>"What time is it right now? Use your MCP utility tool to check."</p>
+            </div>
+            <div class="suggestion-card" data-prompt="Calculate 2**16 + sqrt(65536) using your system tools plugin.">
+              <h4>🧮 Plugin Execution</h4>
+              <p>"Calculate 2**16 + sqrt(65536) using your system tools plugin."</p>
+            </div>
+            <div class="suggestion-card"
+              data-prompt="Design a clean, scalable microservice architecture for a high-traffic payment gateway.">
+              <h4>🏛️ Code Architect Skill</h4>
+              <p>"Design a clean, scalable microservice architecture for a payment gateway."</p>
+            </div>
+          </div>
+        </div>
+        <div class="messages-list" id="messages-list"></div>
+      </div>
+
+      <!-- Chat Input Area -->
+      <div class="chat-input-area">
+        <div class="input-wrapper">
+          <textarea id="chat-textarea" placeholder="Ask anything... (Shift+Enter for new line)" rows="1"></textarea>
+          <div class="input-actions">
+            <button id="send-btn" class="btn btn-send">
+              <span class="send-icon">➤</span>
+            </button>
+          </div>
+        </div>
+        <div class="input-footer">
+          <span>Ocg Agent • Built-in MCP transport</span>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Settings Modal — sidebar layout -->
+  <div class="modal" id="settings-modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card settings-modal-card">
+
+      <!-- Sidebar nav -->
+      <nav class="settings-nav">
+        <!-- Profile header inside nav -->
+        <div class="settings-nav-profile" id="settings-nav-profile">
+          <div class="settings-nav-avatar" id="settings-nav-avatar">👤</div>
+          <div class="settings-nav-info">
+            <div class="settings-nav-email" id="settings-nav-email">Guest Mode</div>
+            <div class="settings-nav-role" id="settings-nav-role">Unauthenticated</div>
+          </div>
+        </div>
+        <div class="settings-nav-items">
+          <button class="settings-nav-item active" data-panel="spanel-account">
+            <span>👤</span> Account
+          </button>
+          <button class="settings-nav-item" data-panel="spanel-agent">
+            <span>⚙️</span> Agent Config
+          </button>
+          <button class="settings-nav-item" data-panel="spanel-extensions">
+            <span>📦</span> Extensions &amp; Evolution
+          </button>
+          <button class="settings-nav-item" data-panel="spanel-mcp">
+            <span>🔌</span> MCP Servers
+          </button>
+        </div>
+        <button class="modal-close settings-modal-close-btn" id="settings-modal-close">×</button>
+      </nav>
+
+      <!-- Content panels -->
+      <div class="settings-content">
+
+        <!-- Panel: Account / Profile -->
+        <div class="settings-panel active" id="spanel-account">
+          <div class="settings-panel-title">Account</div>
+
+          <!-- Logged-in profile view -->
+          <div id="sp-profile-view" style="display:none;">
+            <div class="sp-profile-hero">
+              <div class="sp-avatar-lg" id="sp-avatar-lg">👤</div>
+              <div>
+                <div class="sp-hero-email" id="sp-hero-email">user@example.com</div>
+                <div class="sp-hero-role" id="sp-hero-role">Supabase User</div>
+              </div>
+            </div>
+
+            <!-- Profile Details / Status Grid -->
+            <div class="sp-profile-info-grid">
+              <div class="sp-info-card">
+                <span class="sp-info-label">Auth Provider</span>
+                <span class="sp-info-val">Supabase (JWT)</span>
+              </div>
+              <div class="sp-info-card">
+                <span class="sp-info-label">Security</span>
+                <span class="sp-info-val">Row Level Security</span>
+              </div>
+              <div class="sp-info-card">
+                <span class="sp-info-label">Sync Status</span>
+                <span class="sp-info-val" style="color: var(--success, #10b981);">● Connected</span>
+              </div>
+            </div>
+
+            <!-- Profile Menu Navigation Options -->
+            <div class="sp-profile-menu">
+              <div class="sp-menu-heading">Account &amp; Quick Settings</div>
+              <button class="sp-menu-item" type="button" data-goto="spanel-agent">
+                <span class="sp-menu-icon">⚙️</span>
+                <div class="sp-menu-text">
+                  <div class="sp-menu-title">Agent Configuration</div>
+                  <div class="sp-menu-desc">LLM models, inference temperature, and API keys</div>
+                </div>
+                <span class="sp-menu-arrow">›</span>
+              </button>
+              <button class="sp-menu-item" type="button" data-goto="spanel-extensions">
+                <span class="sp-menu-icon">📦</span>
+                <div class="sp-menu-text">
+                  <div class="sp-menu-title">Extensions &amp; Evolution</div>
+                  <div class="sp-menu-desc">Marketplace hub, dynamic skills, and self-learning memory</div>
+                </div>
+                <span class="sp-menu-arrow">›</span>
+              </button>
+              <button class="sp-menu-item" type="button" data-goto="spanel-mcp">
+                <span class="sp-menu-icon">🔌</span>
+                <div class="sp-menu-text">
+                  <div class="sp-menu-title">MCP Servers</div>
+                  <div class="sp-menu-desc">Model Context Protocol active tool providers</div>
+                </div>
+                <span class="sp-menu-arrow">›</span>
+              </button>
+            </div>
+
+            <div id="sp-profile-feedback" class="feedback-msg" style="margin-bottom:12px;"></div>
+            <button id="sp-logout-btn" class="btn btn-danger btn-full" style="margin-top: 14px;">
+              <span id="sp-logout-spinner" style="display:none;" class="auth-spinner"></span>
+              Sign Out
+            </button>
+          </div>
+
+          <!-- Guest sign-in form -->
+          <div id="sp-login-view">
+            <p class="sp-login-subtitle">Sign in to sync conversations, memories, and settings via Supabase.</p>
+            <div class="auth-tabs" style="margin-bottom:16px;">
+              <button class="auth-tab active" id="tab-signin">Sign In</button>
+              <button class="auth-tab" id="tab-signup">Sign Up</button>
+            </div>
+            <form id="auth-form" class="form-layout">
+              <div class="form-group">
+                <label>Email Address</label>
+                <input type="email" id="auth-email" placeholder="user@example.com" required />
+              </div>
+              <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="auth-password" placeholder="••••••••" required />
+              </div>
+              <div id="auth-feedback" class="feedback-msg"></div>
+              <button type="submit" id="auth-submit-btn" class="btn btn-primary btn-full">Sign In with Supabase</button>
+            </form>
+            <div class="auth-footnote">
+              <p>Authenticates directly through Supabase Auth with Row Level Security.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel: Agent Config -->
+        <div class="settings-panel" id="spanel-agent">
+          <div class="settings-panel-title">Agent Config</div>
+          <form id="settings-form" class="form-layout">
+            <h4 class="form-subheading">LLM Inference</h4>
+            <div class="form-row">
+              <div class="form-group flex-2">
+                <label>Model Identifier</label>
+                <input type="text" id="setting-model" value="Ocg/Ocg3.8-27B" />
+              </div>
+              <div class="form-group flex-1">
+                <label>Temperature</label>
+                <input type="number" id="setting-temp" step="0.1" min="0" max="2" value="0.7" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>API Base URL</label>
+              <input type="text" id="setting-base-url" placeholder="https://openrouter.ai/api/v1" />
+            </div>
+            <div class="form-group">
+              <label>LLM API Key</label>
+              <input type="password" id="setting-api-key" placeholder="sk-or-v1-..." />
+            </div>
+            <h4 class="form-subheading">Supabase Client Credentials</h4>
+            <div class="form-group">
+              <label>Supabase Project URL</label>
+              <input type="text" id="setting-supabase-url" placeholder="https://your-project.supabase.co" />
+            </div>
+            <div class="form-group">
+              <label>Supabase Anon Key</label>
+              <input type="password" id="setting-supabase-anon-key" placeholder="eyJhbGciOiJIUzI1NiIsIn..." />
+            </div>
+            <div id="settings-feedback" class="feedback-msg"></div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary">Save Settings</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Panel: Extensions & Evolution -->
+        <div class="settings-panel" id="spanel-extensions">
+          <div class="settings-panel-title">Extensions &amp; Evolution</div>
+          <div class="ext-section">
+            <div class="ext-section-title">📦 Marketplace &amp; Installs</div>
+            <p class="ext-section-desc">Install community MCP servers, Python plugins, and specialized skills.</p>
+            <button id="settings-open-marketplace" class="btn btn-secondary btn-full ext-action-btn">Open Marketplace
+              Hub →</button>
+          </div>
+          <div class="ext-section">
+            <div class="ext-section-title">🧠 Memory &amp; Self-Evolution</div>
+            <p class="ext-section-desc">View autonomous facts, project context, behavioral rules, and self-improvised
+              learnings.</p>
+            <button id="settings-open-memory" class="btn btn-secondary btn-full ext-action-btn">Open Memory &amp;
+              Evolution →</button>
+          </div>
+        </div>
+
+        <!-- Panel: MCP Servers -->
+        <div class="settings-panel" id="spanel-mcp">
+          <div class="settings-panel-title">Active MCP Servers</div>
+          <div id="settings-mcp-tags" class="server-tags spanel-mcp-tags"></div>
+          <div class="ext-section" style="margin-top:16px;">
+            <div class="ext-section-title">📦 Install / Manage MCP Servers</div>
+            <p class="ext-section-desc">Add new MCP servers from the Marketplace or custom GitHub URLs.</p>
+            <button id="settings-open-marketplace-mcp" class="btn btn-secondary btn-full ext-action-btn">Open
+              Marketplace Hub →</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Marketplace & Extensions Modal -->
+  <div class="modal" id="marketplace-modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card modal-xlarge">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-title-icon">📦</span>
+          <div>
+            <h3>Marketplace & Extensibility Hub</h3>
+            <p class="modal-subtitle">Install community MCP servers, Python plugins, and specialized skills from GitHub
+              or marketplaces.</p>
+          </div>
+        </div>
+        <button class="modal-close" id="marketplace-modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="tab-nav">
+          <button class="tab-btn active" id="tab-btn-catalog">Curated Catalog</button>
+          <button class="tab-btn" id="tab-btn-custom">Install from GitHub / URL</button>
+          <button class="tab-btn" id="tab-btn-installed">Installed Packages</button>
+        </div>
+
+        <!-- Catalog Tab -->
+        <div class="tab-pane active" id="pane-catalog">
+          <div class="filter-bar">
+            <div class="filter-pills">
+              <button class="pill active" data-filter="all">All</button>
+              <button class="pill" data-filter="mcp">MCP Servers</button>
+              <button class="pill" data-filter="plugins">Plugins</button>
+              <button class="pill" data-filter="skills">Skills</button>
+            </div>
+            <input type="text" id="catalog-search" class="search-input" placeholder="Search catalog..." />
+          </div>
+          <div class="marketplace-grid" id="catalog-grid">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Custom Install Tab -->
+        <div class="tab-pane" id="pane-custom">
+          <form id="custom-install-form" class="form-layout">
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label>Package Type</label>
+                <select id="custom-install-type" class="form-select">
+                  <option value="mcp">MCP Server (Stdio / SSE / GitHub)</option>
+                  <option value="plugin">Python Plugin (GitHub raw / URL / Code)</option>
+                  <option value="skill">Markdown Skill (GitHub raw / URL / Text)</option>
+                </select>
+              </div>
+              <div class="form-group flex-2">
+                <label>Identifier / Name</label>
+                <input type="text" id="custom-install-name" placeholder="e.g. github_mcp, custom_scraper" required />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>GitHub Repository URL or Direct File URL</label>
+              <input type="url" id="custom-install-url" placeholder="https://github.com/owner/repo or raw file URL" />
+              <span class="field-hint">Supports full GitHub repos (cloned into installed/ directory) or raw
+                files.</span>
+            </div>
+
+            <div class="form-group" id="mcp-config-group">
+              <label>MCP Command / Configuration (Optional JSON override)</label>
+              <textarea id="custom-install-config" rows="3"
+                placeholder='{"command": "npx", "args": ["-y", "@modelcontextprotocol/server-example"]}'></textarea>
+              <span class="field-hint">Leave blank when installing from GitHub if repo contains a standard
+                entrypoint.</span>
+            </div>
+
+            <div class="form-group" id="code-content-group" style="display: none;">
+              <label>Raw Code / Markdown Content (Optional direct paste)</label>
+              <textarea id="custom-install-code" rows="5"
+                placeholder="Paste custom Python plugin code or markdown skill text..."></textarea>
+            </div>
+
+            <div id="custom-install-feedback" class="feedback-msg"></div>
+            <div class="form-actions">
+              <button type="submit" id="custom-install-btn" class="btn btn-primary">Install Package</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Installed Packages Tab -->
+        <div class="tab-pane" id="pane-installed">
+          <div class="installed-list" id="installed-packages-list">
+            <!-- Dynamically loaded -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Long-Term Memory & Self-Evolution Modal -->
+  <div class="modal" id="memory-modal">
+    <div class="modal-backdrop"></div>
+    <div class="modal-card modal-xlarge">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-title-icon">🧠</span>
+          <div>
+            <h3>Agent Long-Term Memory & Self-Evolution</h3>
+            <p class="modal-subtitle">Autonomous facts, project context, and self-improvised rules recorded across
+              conversations.</p>
+          </div>
+        </div>
+        <button class="modal-close" id="memory-modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="memory-top-bar">
+          <div class="filter-pills" id="memory-category-pills">
+            <button class="pill active" data-cat="all">All Memories</button>
+            <button class="pill" data-cat="fact">Facts</button>
+            <button class="pill" data-cat="project">Project Context</button>
+            <button class="pill" data-cat="rule">Rules</button>
+            <button class="pill" data-cat="learning">Self-Improvised</button>
+          </div>
+          <div class="memory-actions">
+            <button id="toggle-add-memory-btn" class="btn btn-secondary btn-sm">+ Add Memory / Rule</button>
+            <button id="clear-memories-btn" class="btn btn-danger btn-sm">Clear All</button>
+          </div>
+        </div>
+
+        <!-- Add Memory Form (Collapsible) -->
+        <div class="add-memory-panel" id="add-memory-panel" style="display: none;">
+          <form id="add-memory-form" class="form-layout">
+            <div class="form-row">
+              <div class="form-group flex-1">
+                <label>Category</label>
+                <select id="new-mem-category" class="form-select">
+                  <option value="fact">Fact (User / Preference)</option>
+                  <option value="project">Project Context (Stack / Architecture)</option>
+                  <option value="rule">Rule (Behavioral Constraint)</option>
+                  <option value="learning">Self-Improvised Learning</option>
+                </select>
+              </div>
+              <div class="form-group flex-2">
+                <label>Key / Label</label>
+                <input type="text" id="new-mem-key" placeholder="e.g. preferred_orm, auth_guideline" required />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Detailed Content or Behavioral Instruction</label>
+              <textarea id="new-mem-content" rows="2"
+                placeholder="e.g. Always use async SQLAlchemy session handlers and Pydantic v2 schemas."
+                required></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="submit" class="btn btn-primary btn-sm">Save to Memory</button>
+              <button type="button" id="cancel-add-memory-btn" class="btn btn-secondary btn-sm">Cancel</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Memories List -->
+        <div class="memories-container" id="memories-list">
+          <!-- Loaded dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="app.js"></script>
+</body>
+
+</html>

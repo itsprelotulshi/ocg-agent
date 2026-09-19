@@ -1,0 +1,103 @@
+[
+  {
+    "id": "dab99521-1117-46b0-bff6-774b362371eb",
+    "user_id": "test_user",
+    "category": "fact",
+    "key": "user_preferred_stack",
+    "content": "User exclusively uses Python with FastAPI and PostgreSQL.",
+    "source": "user_specified",
+    "confidence": 1.0,
+    "tags": [],
+    "access_count": 0,
+    "updated_at": "2026-09-18T10:32:31.122726+00:00",
+    "created_at": "2026-09-18T10:32:31.123179+00:00"
+  },
+  {
+    "id": "92a7fd5d-4bba-40e5-926b-313825e27981",
+    "user_id": "test_user",
+    "category": "rule",
+    "key": "concise_answers",
+    "content": "Always respond with concise, bulleted markdown without fluff.",
+    "source": "user_specified",
+    "confidence": 1.0,
+    "tags": [],
+    "access_count": 0,
+    "updated_at": "2026-09-18T10:32:31.360806+00:00",
+    "created_at": "2026-09-18T10:32:31.361349+00:00"
+  },
+  {
+    "id": "dba100c1-f18c-4e45-a8d6-768318bb3489",
+    "user_id": "test_user",
+    "category": "learning",
+    "key": "sqlite_syntax_fix",
+    "content": "When executing SQL on SQLite, use PRAGMA table_info instead of information_schema.",
+    "source": "agent_improvised",
+    "confidence": 1.0,
+    "tags": [],
+    "access_count": 0,
+    "updated_at": "2026-09-18T10:32:31.599584+00:00",
+    "created_at": "2026-09-18T10:32:31.600167+00:00"
+  },
+  {
+    "id": "68d5404b-bc38-4dc4-84e4-fcb905dbe38c",
+    "user_id": "test_user",
+    "category": "learning",
+    "key": "correction_use_utc_timestamps_i",
+    "content": "Learned guideline: use UTC timestamps in ISO 8601 format.",
+    "source": "agent_improvised",
+    "confidence": 0.95,
+    "tags": [
+      "self_improvise",
+      "correction"
+    ],
+    "access_count": 0,
+    "updated_at": "2026-09-18T10:32:32.404384+00:00",
+    "created_at": "2026-09-18T10:32:32.404738+00:00"
+  },
+  {
+    "id": "2faad9bd-762c-486e-ac4b-4b02db4e1399",
+    "user_id": "test_user",
+    "category": "rule",
+    "key": "future_rule_use_utc_timestamps_i",
+    "content": "Learned guideline: use UTC timestamps in ISO 8601 format.",
+    "source": "agent_improvised",
+    "confidence": 0.95,
+    "tags": [
+      "self_improvise",
+      "future_rule"
+    ],
+    "access_count": 0,
+    "updated_at": "2026-09-18T10:32:32.646413+00:00",
+    "created_at": "2026-09-18T10:32:32.646950+00:00"
+  },
+  {
+    "id": "0bf60a47-6d09-4bff-88e3-d24b54845727",
+    "user_id": "test_user",
+    "category": "project",
+    "key": "project_domain",
+    "content": "Autonomous Agent Platform",
+    "source": "agent_tool",
+    "confidence": 1.0,
+    "tags": [
+      "explicit_agent_tool"
+    ],
+    "access_count": 0,
+    "updated_at": "2026-09-18T10:32:33.130334+00:00",
+    "created_at": "2026-09-18T10:32:33.130693+00:00"
+  },
+  {
+    "id": "c78c9a11-920a-450d-b7e0-d5fea8478dac",
+    "user_id": "guest_user_1",
+    "category": "fact",
+    "key": "user_asked_about_installed_skills",
+    "content": "The user asked the assistant to check what skills are installed in the agent. The assistant responded by listing several specialized skills: Data Analyst, Web Researcher, Security Auditor, and Fu (cut off).",
+    "source": "llm_synthesized",
+    "confidence": 0.92,
+    "tags": [
+      "llm_extracted"
+    ],
+    "access_count": 0,
+    "updated_at": "2026-09-18T10:57:20.184379+00:00",
+    "created_at": "2026-09-18T10:57:20.185168+00:00"
+  }
+]

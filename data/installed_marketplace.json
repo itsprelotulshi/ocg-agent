@@ -1,0 +1,18 @@
+{
+  "mcp": {},
+  "plugins": {},
+  "skills": {
+    "security_auditor": {
+      "id": "security_auditor",
+      "type": "skill",
+      "file": "skills\\data\\security_auditor.md",
+      "source": "custom_markdown"
+    },
+    "fullstack_engineer": {
+      "id": "fullstack_engineer",
+      "type": "skill",
+      "file": "skills\\data\\fullstack_engineer.md",
+      "source": "custom_markdown"
+    }
+  }
+}
