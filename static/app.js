@@ -122,7 +122,7 @@ async function apiFetch(url, options = {}) {
     try {
       const errJson = await response.json();
       errDetail = errJson.detail || errDetail;
-    } catch (_) {}
+    } catch (_) { }
     throw new Error(errDetail);
   }
   return response.json();
@@ -399,11 +399,11 @@ function updateRealtimeBadge(status, customLabel = null) {
   if (customLabel) {
     elements.realtimeStatusLabel.textContent = customLabel;
   } else if (status === "connected") {
-    elements.realtimeStatusLabel.textContent = "Realtime: Connected";
+    elements.realtimeStatusLabel.textContent = "";
   } else if (status === "connecting") {
-    elements.realtimeStatusLabel.textContent = "Realtime: Connecting...";
+    elements.realtimeStatusLabel.textContent = "Connecting...";
   } else {
-    elements.realtimeStatusLabel.textContent = "Realtime: Offline";
+    elements.realtimeStatusLabel.textContent = "Offline";
   }
 }
 
@@ -460,7 +460,7 @@ function setupRealtimeSubscriptions() {
   if (state.realtimeChannel) {
     try {
       state.supabaseClient.removeChannel(state.realtimeChannel);
-    } catch (_) {}
+    } catch (_) { }
     state.realtimeChannel = null;
   }
 
@@ -1006,8 +1006,12 @@ function renderMemories(memories) {
 
 async function loadMarketplaceCatalog() {
   try {
-    const res = await apiFetch("/api/marketplace/catalog");
-    state.catalog = res;
+    const [catalogRes, installedRes] = await Promise.all([
+      apiFetch("/api/marketplace/catalog"),
+      apiFetch("/api/marketplace/installed"),
+    ]);
+    state.catalog = catalogRes;
+    state.installedPackages = installedRes;
     renderCatalog();
   } catch (err) {
     elements.catalogGrid.innerHTML = `<div class="feedback-msg error">Failed to load catalog: ${escapeHtml(err.message)}</div>`;
@@ -1037,26 +1041,59 @@ function renderCatalog() {
     return;
   }
 
+  const mcpInstalled = state.installedPackages?.mcp || {};
+  const pluginsInstalled = state.installedPackages?.plugins || {};
+  const skillsInstalled = state.installedPackages?.skills || {};
+
   filtered.forEach((item) => {
     const card = document.createElement("div");
     card.className = "marketplace-card";
     const typeClass = `type-${item.type}`;
 
+    const cleanId = (item.id || "").toLowerCase();
+    const cleanIdUnderscore = cleanId.replace(/-/g, "_");
+
     const isInstalled =
-      (item.type === "mcp" && state.installedPackages.mcp?.[item.id]) ||
-      (item.type === "plugin" && state.installedPackages.plugins?.[item.id]) ||
-      (item.type === "skill" && state.installedPackages.skills?.[item.id]);
+      (item.type === "mcp" && Boolean(
+        mcpInstalled[item.id] ||
+        mcpInstalled[cleanId] ||
+        mcpInstalled[cleanIdUnderscore] ||
+        mcpInstalled[item.name] ||
+        Object.keys(mcpInstalled).some(k => k.toLowerCase() === cleanId || k.toLowerCase() === cleanIdUnderscore)
+      )) ||
+      (item.type === "plugin" && Boolean(
+        pluginsInstalled[item.id] ||
+        pluginsInstalled[cleanId] ||
+        pluginsInstalled[cleanIdUnderscore] ||
+        pluginsInstalled[item.name] ||
+        Object.keys(pluginsInstalled).some(k => k.toLowerCase() === cleanId || k.toLowerCase() === cleanIdUnderscore)
+      )) ||
+      (item.type === "skill" && Boolean(
+        skillsInstalled[item.id] ||
+        skillsInstalled[cleanId] ||
+        skillsInstalled[cleanIdUnderscore] ||
+        skillsInstalled[item.name] ||
+        Object.keys(skillsInstalled).some(k => k.toLowerCase() === cleanId || k.toLowerCase() === cleanIdUnderscore)
+      ));
 
     card.innerHTML = `
       <div class="card-header-row">
-        <span class="card-type-badge ${typeClass}">${item.type.toUpperCase()}</span>
-        ${isInstalled ? '<span class="installed-badge">\u2714 Installed</span>' : ""}
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:20px;">${item.icon || "📦"}</span>
+          <span class="card-type-badge ${typeClass}">${item.type.toUpperCase()}</span>
+          ${item.category ? `<span style="font-size:10px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">${escapeHtml(item.category)}</span>` : ""}
+        </div>
+        ${isInstalled ? '<span class="installed-badge">✔ Installed</span>' : ""}
       </div>
-      <div class="card-name">${escapeHtml(item.name || item.id)}</div>
+      <div class="card-name" style="margin-top:4px;">${escapeHtml(item.name || item.id)}</div>
       <div class="card-desc">${escapeHtml(item.description || "")}</div>
       <div class="card-footer">
-        <span class="card-author">${escapeHtml(item.author || "")}</span>
-        ${!isInstalled ? `<button class="btn btn-sm btn-primary catalog-action-btn" data-id="${item.id}" data-type="${item.type}">Install</button>` : ""}
+        <span class="card-author">${item.author ? `By ${escapeHtml(item.author)}` : ""}</span>
+        ${item.source_url ? `<a href="${item.source_url}" target="_blank" rel="noopener noreferrer" style="font-size:11px;color:var(--accent-primary);text-decoration:none;margin-left:8px;margin-right:auto;" title="View on GitHub">GitHub ↗</a>` : ""}
+        ${isInstalled
+          ? `<button class="btn btn-sm btn-secondary catalog-action-btn installed" disabled style="opacity:0.85;cursor:default;">✔ Installed</button>`
+          : `<button class="btn btn-sm btn-primary catalog-action-btn" data-id="${item.id}" data-type="${item.type}">Install</button>`
+        }
       </div>
     `;
 
@@ -1068,13 +1105,39 @@ function renderCatalog() {
         try {
           await apiFetch("/api/marketplace/install", {
             method: "POST",
-            body: JSON.stringify({ type: item.type, id: item.id, name: item.name, source_url: item.source_url }),
+            body: JSON.stringify({
+              type: item.type,
+              id: item.id,
+              name: item.name,
+              source_url: item.source_url,
+              config: item.config,
+            }),
           });
-          actionBtn.textContent = "Installed \u2714";
-          actionBtn.className = "btn btn-sm btn-secondary catalog-action-btn";
+          // Immediately record as installed in client state
+          if (!state.installedPackages[item.type]) {
+            state.installedPackages[item.type] = {};
+          }
+          state.installedPackages[item.type][item.id] = { id: item.id, name: item.name };
+
+          // Immediately update the card UI to show installed state (fixes button staying "Install")
+          actionBtn.textContent = "✔ Installed";
+          actionBtn.classList.remove("btn-primary");
+          actionBtn.classList.add("btn-secondary", "installed");
+          actionBtn.style.opacity = "0.85";
+          actionBtn.style.cursor = "default";
+          // Also add the installed badge to the card header if not already there
+          const cardHeaderRow = card.querySelector(".card-header-row");
+          if (cardHeaderRow && !cardHeaderRow.querySelector(".installed-badge")) {
+            const badge = document.createElement("span");
+            badge.className = "installed-badge";
+            badge.textContent = "✔ Installed";
+            cardHeaderRow.appendChild(badge);
+          }
+
           await loadMCPStatus();
           await loadSkills();
-          await loadMarketplaceCatalog();
+          // Refresh catalog in background to sync full installed state
+          loadMarketplaceCatalog();
         } catch (err) {
           alert("Installation failed: " + err.message);
           actionBtn.disabled = false;
@@ -1492,7 +1555,7 @@ function setupEventListeners() {
       const spinner = document.getElementById("sp-logout-spinner");
       spLogoutBtn.disabled = true;
       if (spinner) spinner.style.display = "inline-block";
-      try { await apiFetch("/api/auth/signout", { method: "POST" }); } catch (_) {}
+      try { await apiFetch("/api/auth/signout", { method: "POST" }); } catch (_) { }
       state.token = "";
       state.user = { is_guest: true, email: "guest@local", role: "guest" };
       localStorage.removeItem("sb_access_token");
@@ -1500,7 +1563,7 @@ function setupEventListeners() {
         try {
           state.supabaseClient.realtime.setAuth(state.supabaseConfig.anonKey);
           setupRealtimeSubscriptions();
-        } catch (_) {}
+        } catch (_) { }
       }
       await checkAuth();
       await loadSessions();

@@ -7,86 +7,13 @@ import subprocess
 from typing import Dict, Any, List, Optional
 import httpx
 
+from core.catalog_data import TOP_100_MCP_SERVERS
+
 logger = logging.getLogger("ocg_agent.marketplace")
 
 # Predefined curated catalog of community MCPs, Plugins, and Skills
 CURATED_CATALOG = {
-    "mcp": [
-        {
-            "id": "filesystem",
-            "name": "Filesystem MCP",
-            "description": "Secure file system access to read, write, list, and search files inside workspace directories.",
-            "category": "System",
-            "author": "Model Context Protocol",
-            "icon": "📁",
-            "config": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-filesystem", "d:/agy_projects"]
-            }
-        },
-        {
-            "id": "sqlite",
-            "name": "SQLite MCP",
-            "description": "Direct read and write inspection for local SQLite relational database files with schema exploration.",
-            "category": "Database",
-            "author": "Model Context Protocol",
-            "icon": "🗄️",
-            "config": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-sqlite", "--db-path", "data/agent.db"]
-            }
-        },
-        {
-            "id": "github",
-            "name": "GitHub Official MCP",
-            "description": "Manage GitHub repos, inspect issues, list pull requests, and commit files via official MCP server.",
-            "category": "Developer Tools",
-            "author": "Model Context Protocol",
-            "icon": "🐙",
-            "config": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-github"],
-                "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": ""}
-            }
-        },
-        {
-            "id": "brave-search",
-            "name": "Brave Web Search MCP",
-            "description": "Real-time web searches and news summaries powered by Brave Search API.",
-            "category": "Web Search",
-            "author": "Brave / MCP",
-            "icon": "🔍",
-            "config": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-brave-search"],
-                "env": {"BRAVE_API_KEY": ""}
-            }
-        },
-        {
-            "id": "fetch",
-            "name": "Fetch & Web Content MCP",
-            "description": "Converts HTML web pages and API responses into clean markdown for fast context ingestion.",
-            "category": "Web Tools",
-            "author": "Model Context Protocol",
-            "icon": "🌐",
-            "config": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-fetch"]
-            }
-        },
-        {
-            "id": "puppeteer",
-            "name": "Puppeteer Browser Automation MCP",
-            "description": "Headless browser automation to navigate pages, capture screenshots, and click elements.",
-            "category": "Automation",
-            "author": "Model Context Protocol",
-            "icon": "🤖",
-            "config": {
-                "command": "npx",
-                "args": ["-y", "@modelcontextprotocol/server-puppeteer"]
-            }
-        }
-    ],
+    "mcp": TOP_100_MCP_SERVERS,
     "plugins": [
         {
             "id": "git_tools",
@@ -274,7 +201,29 @@ class MarketplaceManager:
         return CURATED_CATALOG
 
     def get_installed(self) -> Dict[str, Any]:
-        return self.installed_packages
+        installed = {
+            "mcp": dict(self.installed_packages.get("mcp", {})),
+            "plugins": dict(self.installed_packages.get("plugins", {})),
+            "skills": dict(self.installed_packages.get("skills", {})),
+        }
+        # Also include any servers configured in mcp_servers.json
+        mcp_cfg_path = "mcp_servers.json"
+        if os.path.exists(mcp_cfg_path):
+            try:
+                with open(mcp_cfg_path, "r", encoding="utf-8") as f:
+                    cfg_data = json.load(f)
+                    for s_name, s_cfg in cfg_data.get("mcpServers", {}).items():
+                        if s_name not in installed["mcp"]:
+                            installed["mcp"][s_name] = {
+                                "id": s_name,
+                                "name": s_name,
+                                "type": "mcp",
+                                "source": "config",
+                                "config": s_cfg
+                            }
+            except Exception as e:
+                logger.warning(f"Failed to read mcp_servers.json in get_installed: {e}")
+        return installed
 
     # ==============================================================================
     # MCP Server Installation

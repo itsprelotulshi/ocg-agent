@@ -1,5 +1,22 @@
 {
-  "mcp": {},
+  "mcp": {
+    "brave-search": {
+      "name": "brave-search",
+      "type": "mcp",
+      "source": "config",
+      "config": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@modelcontextprotocol/server-brave-search"
+        ],
+        "env": {
+          "BRAVE_API_KEY": ""
+        }
+      },
+      "installed_at": "10296.5155243"
+    }
+  },
   "plugins": {},
   "skills": {
     "security_auditor": {

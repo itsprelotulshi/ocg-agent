@@ -75,16 +75,16 @@
           <h1 id="active-session-title">New Conversation</h1>
         </div>
         <div class="nav-right">
+          <div class="realtime-badge" id="realtime-status-badge" title="Sync Status">
+            <span class="realtime-dot"></span>
+            <span class="realtime-label" id="realtime-status-label"></span>
+          </div>
           <button id="nav-memory-btn" class="badge badge-interactive" title="View Recorded Memories & Guidelines">
             🧠 <span id="nav-memory-count">0</span> Memories
           </button>
           <button id="nav-marketplace-btn" class="badge badge-interactive" title="Browse Marketplace & Custom Installs">
             📦 Marketplace
           </button>
-          <div class="badge badge-outline realtime-badge" id="realtime-status-badge" title="Supabase Realtime Sync Status">
-            <span class="realtime-dot"></span>
-            <span class="realtime-label" id="realtime-status-label">Realtime: Connecting...</span>
-          </div>
           <div class="badge badge-outline" id="llm-status-badge">Model: DeepSeek-v4.1</div>
         </div>
       </header>

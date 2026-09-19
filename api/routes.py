@@ -224,17 +224,27 @@ async def install_marketplace_item(req: MarketplaceInstallRequest):
 
     try:
         if item_type == "mcp":
-            if req.source_url and ("github.com" in req.source_url or req.source_url.startswith("git@")):
-                res = await marketplace_manager.install_mcp_from_github(
-                    repo_url=req.source_url,
-                    server_name=req.id or req.name,
-                    mcp_manager=agent.mcp
+            # Auto-resolve config from curated catalog if not provided directly
+            if not req.config:
+                catalog_item = next(
+                    (m for m in marketplace_manager.get_catalog().get("mcp", [])
+                     if m.get("id") == req.id or m.get("name") == req.name),
+                    None
                 )
-            elif req.config:
+                if catalog_item and "config" in catalog_item:
+                    req.config = catalog_item["config"]
+
+            if req.config:
                 server_id = req.id or req.name or "custom_mcp"
                 res = await marketplace_manager.install_mcp_from_config(
                     server_name=server_id,
                     config=req.config,
+                    mcp_manager=agent.mcp
+                )
+            elif req.source_url and ("github.com" in req.source_url or req.source_url.startswith("git@")):
+                res = await marketplace_manager.install_mcp_from_github(
+                    repo_url=req.source_url,
+                    server_name=req.id or req.name,
                     mcp_manager=agent.mcp
                 )
             else:
